@@ -29,7 +29,13 @@ async function run() {
     const db = client.db("blood-bridge")
     const donationCollection = db.collection('donations')
     const paymentCollection = db.collection('payments')
-    const requestCollection = db.collection('requests')
+    const requestCollection = db.collection('requests');
+
+    app.get('/api/donation', async (req, res) => {
+      const {email} = req.body;
+      const result = await donationCollection.findOne({email});
+      res.send(result);
+    })
 
 
     app.post('/api/donations', async (req, res) => {
@@ -38,8 +44,13 @@ async function run() {
       } = req.body
 
       const addData = {
-        recipientName,
-        location, donationDate, donationTime, bloodGroup, createdAt: new Date(),
+        name,
+        email,
+        avatar,
+        district,
+        upazila,
+        bloodGroup,
+        createdAt: new Date(),
         status: 'pending'
       }
 
