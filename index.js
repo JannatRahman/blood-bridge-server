@@ -1,7 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 dotenv.config();
 const app = express();
 const port = process.env.PORT;
@@ -39,14 +39,14 @@ async function run() {
 
 
     app.post('/api/donations', async (req, res) => {
-      const { recipientName,
-        location, donationDate, donationTime, bloodGroup,
+      const { name, email,image, district, upazila, bloodGroup 
+        
       } = req.body
 
       const addData = {
         name,
         email,
-        avatar,
+        image,
         district,
         upazila,
         bloodGroup,
@@ -55,7 +55,29 @@ async function run() {
       }
 
       const result = await donationCollection.insertOne(addData);
-      return result;
+      return res.send(result);
+    })
+
+    app.patch('/api/donations/:id', async (req, res) => {
+      const {id} = req.params;
+      const { name, email,image, district, upazila, bloodGroup 
+      } = req.body
+
+      const updateData = {
+        name,
+        email,
+        avatar,
+        district,
+        upazila,
+        bloodGroup,
+      };
+      const result = await donationCollection.updateOne(
+        {_id: new ObjectId(id)},
+        {
+          $set:{ ...updateData},
+        }
+      );
+     res.send (result);
     })
 
 
