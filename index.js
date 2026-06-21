@@ -38,26 +38,12 @@ async function run() {
     })
 
 
-    // app.post('/api/donations', async (req, res) => {
-    //   const { name, email, image, district, upazila, bloodGroup
-    //   } = req.body
-
-    //   const addData = {
-    //     name,
-    //     email,
-    //     image,
-    //     district,
-    //     upazila,
-    //     bloodGroup,
-    //     createdAt: new Date(),
-    //     status: 'pending'
-    //   }
-
-    //   const result = await donationCollection.insertOne(addData);
-    //   return send(result);
-    // })
-
-
+  //  DONATION REQUESTS
+  app.get('/api/donation-request', async(req, res) => {
+    const cursor = donationCollection.find();
+    const result = await cursor.toArray();
+    res.send(result);
+  })
 
     // DONOR API
 
