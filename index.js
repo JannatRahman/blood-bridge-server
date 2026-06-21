@@ -43,7 +43,18 @@ async function run() {
     const cursor = donationCollection.find();
     const result = await cursor.toArray();
     res.send(result);
+  });
+
+
+  app.get('/api/single-request/:id', async(req, res) => {
+   const {id} = req.params;
+   console.log(req.params)
+   const query = {_id: new ObjectId(id)};
+   const result = await donationCollection.findOne(query);
+    res.send(result);
   })
+
+
 
     // DONOR API
 
