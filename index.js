@@ -38,50 +38,28 @@ async function run() {
     })
 
 
-    app.post('/api/donations', async (req, res) => {
-      const { name, email, image, district, upazila, bloodGroup
-      } = req.body
+    // app.post('/api/donations', async (req, res) => {
+    //   const { name, email, image, district, upazila, bloodGroup
+    //   } = req.body
 
-      const addData = {
-        name,
-        email,
-        image,
-        district,
-        upazila,
-        bloodGroup,
-        createdAt: new Date(),
-        status: 'pending'
-      }
+    //   const addData = {
+    //     name,
+    //     email,
+    //     image,
+    //     district,
+    //     upazila,
+    //     bloodGroup,
+    //     createdAt: new Date(),
+    //     status: 'pending'
+    //   }
 
-      const result = await donationCollection.insertOne(addData);
-      return send(result);
-    })
+    //   const result = await donationCollection.insertOne(addData);
+    //   return send(result);
+    // })
 
-    app.patch('/api/donations/:id', async (req, res) => {
-      const { id } = req.params;
-      const { name, email, image, district, upazila, bloodGroup
-      } = req.body
 
-      const updateData = {
-        name,
-        email,
-        image,
-        district,
-        upazila,
-        bloodGroup,
-      };
-      const result = await donationCollection.updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $set: {
-            ...updateData,
 
-          },
-        }
-      );
-      res.send(result);
-    });
-
+    // DONOR API
 
     app.get('/api/my-request/:email', async (req, res) => {
       const { email } = req.params;;
@@ -96,6 +74,34 @@ async function run() {
       console.log(data);
       const result = await createCollection.insertOne({ ...data })
 
+      res.send(result);
+    });
+
+    app.patch('/api/edit-request/:id', async (req, res) => {
+      const { id } = req.params;
+
+      const updateData = req.body;
+      console.log(updateData);
+      const result = await createCollection.updateOne(
+
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+
+            recipientName : updateData.name,
+            bloodGroup: updateData.bloodGroup,
+            recipientDistrict: updateData.districts,
+            donationDate: updateData.date
+          },
+        }
+      );
+      console.log(result);
+      res.send(result);
+    });
+
+    app.delete('/api/delete-request/:id', async (req, res) => {
+      const {id} = req.params;
+      const result = await createCollection.deleteOne({_id: new ObjectId(id)});
       res.send(result);
     })
 
