@@ -22,25 +22,24 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
-
     // await client.connect();
     // await client.db("admin").command({ ping: 1 });
 
-    const db = client.db("blood-bridge")
-    const donationCollection = db.collection('donations')
-    const paymentCollection = db.collection('payments')
+    const db = client.db('blood-bridge');
+    const donationCollection = db.collection('donations');
+    const paymentCollection = db.collection('payments');
     const requestCollection = db.collection('requests');
+    const createCollection = db.collection('creates');
 
-    app.get('/api/donation', async (req, res) => {
-      const {email} = req.body;
-      const result = await donationCollection.findOne({email});
+    app.get('/api/donation/:email', async (req, res) => {
+      const { email } = req.params;;
+      const result = await donationCollection.findOne({ email });
       res.send(result);
     })
 
 
     app.post('/api/donations', async (req, res) => {
-      const { name, email,image, district, upazila, bloodGroup 
-        
+      const { name, email, image, district, upazila, bloodGroup
       } = req.body
 
       const addData = {
@@ -55,29 +54,49 @@ async function run() {
       }
 
       const result = await donationCollection.insertOne(addData);
-      return res.send(result);
+      return send(result);
     })
 
     app.patch('/api/donations/:id', async (req, res) => {
-      const {id} = req.params;
-      const { name, email,image, district, upazila, bloodGroup 
+      const { id } = req.params;
+      const { name, email, image, district, upazila, bloodGroup
       } = req.body
 
       const updateData = {
         name,
         email,
-        avatar,
+        image,
         district,
         upazila,
         bloodGroup,
       };
       const result = await donationCollection.updateOne(
-        {_id: new ObjectId(id)},
+        { _id: new ObjectId(id) },
         {
-          $set:{ ...updateData},
+          $set: {
+            ...updateData,
+
+          },
         }
       );
-     res.send (result);
+      res.send(result);
+    });
+
+
+    app.get('/api/my-request/:email', async (req, res) => {
+      const { email } = req.params;;
+      const result = await createCollection.find({
+        requesterEmail: email
+      }).toArray();
+      res.send(result);
+    })
+
+    app.post('/api/create-request', async (req, res) => {
+      const data = req.body;
+      console.log(data);
+      const result = await createCollection.insertOne({ ...data })
+
+      res.send(result);
     })
 
 
