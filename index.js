@@ -38,21 +38,44 @@ async function run() {
     })
 
 
-  //  DONATION REQUESTS
-  app.get('/api/donation-request', async(req, res) => {
-    const cursor = donationCollection.find();
-    const result = await cursor.toArray();
-    res.send(result);
-  });
 
 
-  app.get('/api/single-request/:id', async(req, res) => {
-   const {id} = req.params;
-   console.log(req.params)
-   const query = {_id: new ObjectId(id)};
-   const result = await donationCollection.findOne(query);
-    res.send(result);
-  })
+    //  DONATION REQUESTS
+    app.get('/api/donation-request', async (req, res) => {
+      const bloodGroup = req.query.bloodGroup;
+      const districts = req.query.recipientDistrict;
+      const upazila = req.query.
+        recipientUpazila;
+
+      const query = {};
+
+      if (bloodGroup) {
+        query.bloodGroup = bloodGroup;
+      }
+      if (districts) {
+        query.
+          recipientDistrict =
+          recipientDistrict;
+      }
+      if (upazila) {
+        query.
+          recipientUpazila =
+          recipientUpazila;
+      }
+
+      const cursor = donationCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+
+    app.get('/api/single-request/:id', async (req, res) => {
+      const { id } = req.params;
+      console.log(req.params)
+      const query = { _id: new ObjectId(id) };
+      const result = await donationCollection.findOne(query);
+      res.send(result);
+    })
 
 
 
@@ -69,7 +92,12 @@ async function run() {
     app.post('/api/create-request', async (req, res) => {
       const data = req.body;
       console.log(data);
-      const result = await createCollection.insertOne({ ...data })
+      return;
+
+      const result = await createCollection.insertOne({
+        ...data,
+        status: 'pending'
+      })
 
       res.send(result);
     });
@@ -85,7 +113,7 @@ async function run() {
         {
           $set: {
 
-            recipientName : updateData.name,
+            recipientName: updateData.name,
             bloodGroup: updateData.bloodGroup,
             recipientDistrict: updateData.districts,
             donationDate: updateData.date
@@ -97,8 +125,8 @@ async function run() {
     });
 
     app.delete('/api/delete-request/:id', async (req, res) => {
-      const {id} = req.params;
-      const result = await createCollection.deleteOne({_id: new ObjectId(id)});
+      const { id } = req.params;
+      const result = await createCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     })
 
