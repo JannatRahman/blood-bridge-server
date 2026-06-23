@@ -44,25 +44,18 @@ async function run() {
     app.get('/api/donation-request', async (req, res) => {
       const bloodGroup = req.query.bloodGroup;
       const districts = req.query.recipientDistrict;
-      const upazila = req.query.
-        recipientUpazila;
+      const upazila = req.query.recipientUpazila;
 
       const query = {};
-
       if (bloodGroup) {
         query.bloodGroup = bloodGroup;
       }
       if (districts) {
-        query.
-          recipientDistrict =
-          recipientDistrict;
+        query.recipientDistrict = districts;
       }
       if (upazila) {
-        query.
-          recipientUpazila =
-          recipientUpazila;
+        query.recipientUpazila = upazila;
       }
-
       const cursor = donationCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
