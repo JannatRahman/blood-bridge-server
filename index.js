@@ -30,6 +30,9 @@ async function run() {
     const paymentCollection = db.collection('payments');
     const requestCollection = db.collection('requests');
     const createCollection = db.collection('creates');
+    const userCollection = db.collection('user');
+    const fundingCollection = db.collection('funding');
+
 
     app.get('/api/donation/:email', async (req, res) => {
       const { email } = req.params;;
@@ -68,7 +71,22 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await donationCollection.findOne(query);
       res.send(result);
-    })
+    });
+
+    app.patch('/api/single-request/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const result = await donationCollection.findOneAndUpdate(
+          { _id: new ObjectId(id) },
+          { $set: { status } },
+          { returnDocument: "after" }
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
 
 
@@ -85,7 +103,6 @@ async function run() {
     app.post('/api/create-request', async (req, res) => {
       const data = req.body;
       console.log(data);
-      return;
 
       const result = await createCollection.insertOne({
         ...data,
@@ -123,6 +140,45 @@ async function run() {
       res.send(result);
     })
 
+    // payment api
+    app.patch('/api/users/payment-successful/:email', async (req, res) => {
+      const { email } = req.params;
+      const result = await userCollection.updateOne(
+        { email }
+      );
+      res.send(result);
+    });
+
+
+    //  funding api
+
+    // 1. SAVE a new donation
+    app.post('/api/add-fund', async (req, res) => {
+      try {
+        const { name, amount, date } = req.body;
+        const newDonation = {
+          name,
+          amount: parseFloat(amount),
+          date: date || new Date().toISOString().split('T')[0]
+        };
+        const result = await fundingCollection.insertOne(newDonation);
+        res.send({ ...newDonation, _id: result.insertedId });
+      } catch (error) {
+        console.error("Error saving donation:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    
+    app.get('/api/get-funds', async (req, res) => {
+      try {
+        const result = await fundingCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching funds:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
