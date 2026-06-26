@@ -29,7 +29,6 @@ async function run() {
     const donationCollection = db.collection('donations');
     const paymentCollection = db.collection('payments');
     const requestCollection = db.collection('requests');
-    const createCollection = db.collection('creates');
     const userCollection = db.collection('user');
     const fundingCollection = db.collection('funding');
 
@@ -93,18 +92,26 @@ async function run() {
     // DONOR API
 
     app.get('/api/my-request/:email', async (req, res) => {
-      const { email } = req.params;;
-      const result = await createCollection.find({
+      const { email } = req.params;
+    // pagination
+    const {page =1, limit=10} = req.query;
+    const skip = (Number(page) - 1) * Number(limit)
+
+
+      const result = await donationCollection.find({
         requesterEmail: email
-      }).toArray();
-      res.send(result);
+      }).skip(skip).limit(Number(limit)).toArray();
+      const totalData = await donationCollection.countDocuments({requesterEmail: email})
+      const totalPage = Math.ceil(totalData/Number(limit))
+
+      res.send({data: result, page: Number(page), totalPage});
     })
 
     app.post('/api/create-request', async (req, res) => {
       const data = req.body;
       console.log(data);
 
-      const result = await createCollection.insertOne({
+      const result = await donationCollection.insertOne({
         ...data,
         status: 'pending'
       })
@@ -117,7 +124,7 @@ async function run() {
 
       const updateData = req.body;
       console.log(updateData);
-      const result = await createCollection.updateOne(
+      const result = await donationCollection.updateOne(
 
         { _id: new ObjectId(id) },
         {
@@ -136,7 +143,7 @@ async function run() {
 
     app.delete('/api/delete-request/:id', async (req, res) => {
       const { id } = req.params;
-      const result = await createCollection.deleteOne({ _id: new ObjectId(id) });
+      const result = await donationCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     })
 
@@ -169,7 +176,7 @@ async function run() {
       }
     });
 
-    
+
     app.get('/api/get-funds', async (req, res) => {
       try {
         const result = await fundingCollection.find().toArray();
@@ -177,6 +184,46 @@ async function run() {
       } catch (error) {
         console.error("Error fetching funds:", error);
         res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // volunteer api
+    app.get('/api/get-request', async (req, res) => {
+      // const {} = req.params;
+      const result = await donationCollection.find().toArray();
+      res.send(result)
+    })
+
+    // users api
+
+    app.get('/api/all-users', async (req, res) => {
+      try {
+        const userCollection = db.collection('user');
+        const users = await userCollection.find({}).toArray();
+        res.status(200).send(users);
+      } catch (error) {
+        console.error("Error fetching users from database:", error);
+        res.status(500).send({ message: "Internal Server Error", error: error.message });
+      }
+    });
+
+
+    app.patch('/api/all-users/:id/status', async (req, res) => {
+      try {
+        const userId = req.params.id;
+        const { isBlocked } = req.body;
+        const userCollection = db.collection('user');
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { isBlocked: isBlocked } }
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+        res.status(200).send({ message: "User status updated successfully", isBlocked });
+      } catch (error) {
+        console.error("Error updating user status:", error);
+        res.status(500).send({ message: "Internal Server Error", error: error.message });
       }
     });
 
