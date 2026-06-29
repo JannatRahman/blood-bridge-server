@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 dotenv.config();
 const app = express();
 const port = process.env.PORT;
@@ -9,6 +10,18 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
+const logger = (req, res, next) => {
+  console.log('logger middleware logged', req.params);
+
+  next();
+}
+
+
+const verifyToken = (req, res, next) => {
+  console.log('headers', req.headers)
+
+  next();
+}
 
 
 const uri = process.env.MONGO_DB_URI;
@@ -20,6 +33,8 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+
+
 async function run() {
   try {
     // await client.connect();
@@ -44,6 +59,8 @@ async function run() {
 
     //  DONATION REQUESTS
     app.get('/api/donation-request', async (req, res) => {
+      const { page = 1, limit = 10 } = req.query;
+      const skip = (Number(page) - 1) * Number(limit)
       const bloodGroup = req.query.bloodGroup;
       const districts = req.query.recipientDistrict;
       const upazila = req.query.recipientUpazila;
@@ -58,6 +75,19 @@ async function run() {
       if (upazila) {
         query.recipientUpazila = upazila;
       }
+      // pagination
+      if (req.query.page) {
+        const page = req.query.page;
+        const perPage = req.query.perPage || 9;
+        const skipItems = (page - 1) * perPage
+
+
+        const total = await donationCollection.countDocuments(query);
+        const cursor = donationCollection.find(query).skip(skipItems).limit(perPage);
+        const donations = await cursor.toArray();
+        return res.send({ total, donations });
+      }
+
       const cursor = donationCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
@@ -66,7 +96,7 @@ async function run() {
 
     app.get('/api/single-request/:id', async (req, res) => {
       const { id } = req.params;
-      console.log(req.params)
+      // console.log(req.params)
       const query = { _id: new ObjectId(id) };
       const result = await donationCollection.findOne(query);
       res.send(result);
@@ -87,29 +117,48 @@ async function run() {
       }
     });
 
+    app.get('/api/filter-request', async (req, res) => {
+      try {
+        const { bloodGroup, recipientDistrict, recipientUpazila } = req.query;
+
+        const query = {};
+
+        if (bloodGroup) query.bloodGroup = bloodGroup;
+        if (recipientDistrict) query.recipientDistrict = recipientDistrict;
+        if (recipientUpazila) query.recipientUpazila = recipientUpazila;
+        const result = await donationCollection.find(query).toArray();
+        res.status(200).json({ success: true, data: result });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+
 
 
     // DONOR API
 
-    app.get('/api/my-request/:email', async (req, res) => {
+
+
+    app.get('/api/my-request/:email', logger, verifyToken, async (req, res) => {
       const { email } = req.params;
-    // pagination
-    const {page =1, limit=10} = req.query;
-    const skip = (Number(page) - 1) * Number(limit)
+      // pagination
+      const { page = 1, limit = 10 } = req.query;
+      const skip = (Number(page) - 1) * Number(limit)
 
 
       const result = await donationCollection.find({
         requesterEmail: email
       }).skip(skip).limit(Number(limit)).toArray();
-      const totalData = await donationCollection.countDocuments({requesterEmail: email})
-      const totalPage = Math.ceil(totalData/Number(limit))
+      const totalData = await donationCollection.countDocuments({ requesterEmail: email })
+      const totalPage = Math.ceil(totalData / Number(limit))
 
-      res.send({data: result, page: Number(page), totalPage});
+      res.send({ data: result, page: Number(page), totalPage });
     })
 
     app.post('/api/create-request', async (req, res) => {
       const data = req.body;
-      console.log(data);
+      // console.log(data);
 
       const result = await donationCollection.insertOne({
         ...data,
@@ -119,17 +168,38 @@ async function run() {
       res.send(result);
     });
 
+    app.patch('/api/status/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { status } = req.body; // Grab the dynamic status sent from frontend
+
+        // console.log(`Updating ID: ${id} to Status: ${status}`);
+
+        const query = { _id: new ObjectId(id) };
+
+        // Fallback to "cancelled" if no status is provided in the body
+        const updateTargetStatus = { $set: { status: status || "cancelled" } };
+
+        const result = await donationCollection.updateOne(query, updateTargetStatus);
+
+        // console.log('Result:', result);
+        res.send(result);
+
+      } catch (error) {
+        // console.error("Backend Error:", error);
+        res.status(500).send({ error: "Internal Server Error", message: error.message });
+      }
+    });
+
+
     app.patch('/api/edit-request/:id', async (req, res) => {
       const { id } = req.params;
-
       const updateData = req.body;
-      console.log(updateData);
+      // console.log(updateData);
       const result = await donationCollection.updateOne(
-
         { _id: new ObjectId(id) },
         {
           $set: {
-
             recipientName: updateData.name,
             bloodGroup: updateData.bloodGroup,
             recipientDistrict: updateData.districts,
@@ -137,7 +207,7 @@ async function run() {
           },
         }
       );
-      console.log(result);
+      // console.log(result);
       res.send(result);
     });
 
@@ -171,7 +241,7 @@ async function run() {
         const result = await fundingCollection.insertOne(newDonation);
         res.send({ ...newDonation, _id: result.insertedId });
       } catch (error) {
-        console.error("Error saving donation:", error);
+        // console.error("Error saving donation:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
@@ -182,13 +252,15 @@ async function run() {
         const result = await fundingCollection.find().toArray();
         res.send(result);
       } catch (error) {
-        console.error("Error fetching funds:", error);
+        // console.error("Error fetching funds:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
 
     // volunteer api
     app.get('/api/get-request', async (req, res) => {
+      // const {page=1, limit=10} = req.query;
+      // const skip = (Number(page) - 1) * Number(limit)
       // const {} = req.params;
       const result = await donationCollection.find().toArray();
       res.send(result)
@@ -202,30 +274,59 @@ async function run() {
         const users = await userCollection.find({}).toArray();
         res.status(200).send(users);
       } catch (error) {
-        console.error("Error fetching users from database:", error);
+        // console.error("Error fetching users from database:", error);
+        res.status(500).send({ message: "Internal Server Error", error: error.message });
+      }
+    });
+
+    app.patch('/api/all-users/:id/role', async (req, res) => {
+      try {
+        const userId = req.params.id;
+        const { role } = req.body;
+
+        if (!role) {
+          return res.status(400).send({ message: "Role is required" });
+        }
+
+        // Update the role in MongoDB
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { role: role } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.status(200).send({ message: `User role updated to ${role} successfully`, role });
+      } catch (error) {
         res.status(500).send({ message: "Internal Server Error", error: error.message });
       }
     });
 
 
-    app.patch('/api/all-users/:id/status', async (req, res) => {
+    app.patch('/api/all-users/:id/status', logger, verifyToken, async (req, res) => {
       try {
         const userId = req.params.id;
         const { isBlocked } = req.body;
-        const userCollection = db.collection('user');
+        // console.log(isBlocked, userId);
+
         const result = await userCollection.updateOne(
           { _id: new ObjectId(userId) },
           { $set: { isBlocked: isBlocked } }
         );
+        // console.log(result);
         if (result.matchedCount === 0) {
           return res.status(404).send({ message: "User not found" });
         }
         res.status(200).send({ message: "User status updated successfully", isBlocked });
       } catch (error) {
-        console.error("Error updating user status:", error);
+        // console.error("Error updating user status:", error);
         res.status(500).send({ message: "Internal Server Error", error: error.message });
       }
     });
+
+
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
