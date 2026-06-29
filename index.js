@@ -10,18 +10,6 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-const logger = (req, res, next) => {
-  console.log('logger middleware logged', req.params);
-
-  next();
-}
-
-
-const verifyToken = (req, res, next) => {
-  console.log('headers', req.headers)
-
-  next();
-}
 
 
 const uri = process.env.MONGO_DB_URI;
@@ -46,6 +34,54 @@ async function run() {
     const requestCollection = db.collection('requests');
     const userCollection = db.collection('user');
     const fundingCollection = db.collection('funding');
+    const sessionCollection = db.collection('session');
+
+
+
+
+    const verifyToken = async (req, res, next) => {
+      const authHeader = req.headers?.authorization;
+      if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized access' })
+      }
+
+      const token = authHeader.split(' ')[1]
+
+      if (!token) {
+        return res.status(401).send({ message: 'unauthorized access' })
+      }
+
+      const query = { token: token }
+      const session = await sessionCollection.findOne(query);
+      const userId = session.userId;
+      const userQuery = {
+        _id: userId
+      }
+      const user = await userCollection.findOne(userQuery);
+      req.user = user;
+      next();
+    }
+
+    const logger = (req, res, next) => {
+      
+
+      next();
+    }
+
+    const verifyDonor = (req, res, next) => {
+      if (req.user?.role !== "Donor" && req.user?.role !== "Donor") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
+    const verifyAdmin = (req, res, next) => {
+      if (req.user?.role !== "Admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
 
 
     app.get('/api/donation/:email', async (req, res) => {
@@ -94,7 +130,7 @@ async function run() {
     });
 
 
-    app.get('/api/single-request/:id', async (req, res) => {
+    app.get('/api/single-request/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       // console.log(req.params)
       const query = { _id: new ObjectId(id) };
@@ -102,7 +138,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/api/single-request/:id', async (req, res) => {
+    app.patch('/api/single-request/:id', verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const { status } = req.body;
@@ -117,7 +153,7 @@ async function run() {
       }
     });
 
-    app.get('/api/filter-request', async (req, res) => {
+    app.get('/api/filter-request', verifyToken, async (req, res) => {
       try {
         const { bloodGroup, recipientDistrict, recipientUpazila } = req.query;
 
@@ -138,15 +174,11 @@ async function run() {
 
     // DONOR API
 
-
-
-    app.get('/api/my-request/:email', logger, verifyToken, async (req, res) => {
+    app.get('/api/my-request/:email', verifyToken, async (req, res) => {
       const { email } = req.params;
       // pagination
       const { page = 1, limit = 10 } = req.query;
       const skip = (Number(page) - 1) * Number(limit)
-
-
       const result = await donationCollection.find({
         requesterEmail: email
       }).skip(skip).limit(Number(limit)).toArray();
@@ -156,7 +188,7 @@ async function run() {
       res.send({ data: result, page: Number(page), totalPage });
     })
 
-    app.post('/api/create-request', async (req, res) => {
+    app.post('/api/create-request', verifyToken, async (req, res) => {
       const data = req.body;
       // console.log(data);
 
@@ -168,7 +200,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/api/status/:id', async (req, res) => {
+    app.patch('/api/status/:id', verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const { status } = req.body; // Grab the dynamic status sent from frontend
@@ -192,7 +224,7 @@ async function run() {
     });
 
 
-    app.patch('/api/edit-request/:id', async (req, res) => {
+    app.patch('/api/edit-request/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       const updateData = req.body;
       // console.log(updateData);
@@ -211,7 +243,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete('/api/delete-request/:id', async (req, res) => {
+    app.delete('/api/delete-request/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       const result = await donationCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
