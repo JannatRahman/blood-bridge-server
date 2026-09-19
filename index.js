@@ -69,7 +69,8 @@ async function run() {
     }
 
     const verifyDonor = (req, res, next) => {
-      if (req.user?.role !== "Donor" && req.user?.role !== "Donor") {
+      const userRole = req.user?.role || "Donor";
+      if (userRole.toLowerCase() !== "donor") {
         return res.status(403).send({ message: "forbidden access" });
       }
       next();
